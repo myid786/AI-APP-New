@@ -1,0 +1,21 @@
+server:
+  port: ${SERVER_PORT:8085}
+
+spring:
+  application:
+    name: media-service
+  servlet:
+    multipart:
+      max-file-size: ${MAX_FILE_SIZE:500MB}
+      max-request-size: ${MAX_REQUEST_SIZE:500MB}
+
+app:
+  upload-dir: ${UPLOAD_DIR:/app/uploads}
+  media-base-url: ${MEDIA_BASE_URL:http://localhost:8085/uploads}
+
+eureka:
+  client:
+    service-url:
+      defaultZone: ${EUREKA_CLIENT_SERVICEURL_DEFAULTZONE:${EUREKA_URL:http://discovery-service:8761/eureka}}
+  instance:
+    prefer-ip-address: true

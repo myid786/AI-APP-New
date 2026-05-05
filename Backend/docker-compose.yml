@@ -1,0 +1,160 @@
+services:
+  mysql:
+    image: mysql:8.0
+    container_name: aimedia-mysql
+    environment:
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:-root}
+    ports:
+      - "3307:3306"
+    volumes:
+      - mysql_data:/var/lib/mysql
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-p${MYSQL_ROOT_PASSWORD:-root}"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+  redis:
+    image: redis:7-alpine
+    container_name: aimedia-redis
+    ports:
+      - "6379:6379"
+
+  discovery-service:
+    build:
+      context: .
+      dockerfile: discovery-service/Dockerfile
+    ports:
+      - "8761:8761"
+
+  auth-service:
+    build:
+      context: .
+      dockerfile: auth-service/Dockerfile
+    environment:
+      DB_URL: jdbc:mysql://mysql:3306/auth_db?createDatabaseIfNotExist=true&useSSL=false&allowPublicKeyRetrieval=true
+      DB_USERNAME: root
+      DB_PASSWORD: ${MYSQL_ROOT_PASSWORD:-root}
+      JWT_SECRET: ${JWT_SECRET:-change-this-secret-for-local-development-only-12345678901234567890}
+      EUREKA_URL: http://discovery-service:8761/eureka
+    depends_on:
+      mysql:
+        condition: service_healthy
+      discovery-service:
+        condition: service_started
+
+  user-service:
+    build:
+      context: .
+      dockerfile: user-service/Dockerfile
+    environment:
+      DB_URL: jdbc:mysql://mysql:3306/user_db?createDatabaseIfNotExist=true&useSSL=false&allowPublicKeyRetrieval=true
+      DB_USERNAME: root
+      DB_PASSWORD: ${MYSQL_ROOT_PASSWORD:-root}
+      EUREKA_URL: http://discovery-service:8761/eureka
+    depends_on:
+      mysql:
+        condition: service_healthy
+      discovery-service:
+        condition: service_started
+
+  post-service:
+    build:
+      context: .
+      dockerfile: post-service/Dockerfile
+    environment:
+      DB_URL: jdbc:mysql://mysql:3306/post_db?createDatabaseIfNotExist=true&useSSL=false&allowPublicKeyRetrieval=true
+      DB_USERNAME: root
+      DB_PASSWORD: ${MYSQL_ROOT_PASSWORD:-root}
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      EUREKA_URL: http://discovery-service:8761/eureka
+    depends_on:
+      mysql:
+        condition: service_healthy
+      redis:
+        condition: service_started
+      discovery-service:
+        condition: service_started
+
+  interaction-service:
+    build:
+      context: .
+      dockerfile: interaction-service/Dockerfile
+    environment:
+      DB_URL: jdbc:mysql://mysql:3306/interaction_db?createDatabaseIfNotExist=true&useSSL=false&allowPublicKeyRetrieval=true
+      DB_USERNAME: root
+      DB_PASSWORD: ${MYSQL_ROOT_PASSWORD:-root}
+      EUREKA_URL: http://discovery-service:8761/eureka
+    depends_on:
+      mysql:
+        condition: service_healthy
+      discovery-service:
+        condition: service_started
+
+  media-service:
+    build:
+      context: .
+      dockerfile: media-service/Dockerfile
+    environment:
+      UPLOAD_DIR: /app/uploads
+      MEDIA_BASE_URL: http://localhost:8085/uploads
+      EUREKA_URL: http://discovery-service:8761/eureka
+    volumes:
+      - media_uploads:/app/uploads
+    ports:
+      - "8085:8085"
+    depends_on:
+      discovery-service:
+        condition: service_started
+
+  ai-service:
+    build:
+      context: .
+      dockerfile: ai-service/Dockerfile
+    environment:
+      EUREKA_URL: http://discovery-service:8761/eureka
+    depends_on:
+      discovery-service:
+        condition: service_started
+
+  api-gateway:
+    build:
+      context: .
+      dockerfile: api-gateway/Dockerfile
+    environment:
+      FRONTEND_ORIGIN: http://localhost:5173
+      EUREKA_URL: http://discovery-service:8761/eureka
+    ports:
+      - "8080:8080"
+    depends_on:
+      discovery-service:
+        condition: service_started
+      auth-service:
+        condition: service_started
+      user-service:
+        condition: service_started
+      post-service:
+        condition: service_started
+      interaction-service:
+        condition: service_started
+      media-service:
+        condition: service_started
+      ai-service:
+        condition: service_started
+
+  frontend:
+    build:
+      context: ../FrontEnd
+      dockerfile: Dockerfile
+      args:
+        VITE_API_BASE_URL: http://localhost:8080
+    ports:
+      - "5173:80"
+    depends_on:
+      api-gateway:
+        condition: service_started
+
+volumes:
+  mysql_data:
+  media_uploads:

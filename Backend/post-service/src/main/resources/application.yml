@@ -1,0 +1,25 @@
+server:
+  port: ${SERVER_PORT:8083}
+
+spring:
+  application:
+    name: post-service
+  datasource:
+    url: ${DB_URL:jdbc:mysql://mysql:3306/post_db?createDatabaseIfNotExist=true&useSSL=false&allowPublicKeyRetrieval=true}
+    username: ${DB_USERNAME:root}
+    password: ${DB_PASSWORD:root}
+  jpa:
+    hibernate:
+      ddl-auto: ${JPA_DDL_AUTO:update}
+    show-sql: ${JPA_SHOW_SQL:true}
+  data:
+    redis:
+      host: ${REDIS_HOST:redis}
+      port: ${REDIS_PORT:6379}
+
+eureka:
+  client:
+    service-url:
+      defaultZone: ${EUREKA_CLIENT_SERVICEURL_DEFAULTZONE:${EUREKA_URL:http://discovery-service:8761/eureka}}
+  instance:
+    prefer-ip-address: true

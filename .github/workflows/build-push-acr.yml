@@ -1,0 +1,68 @@
+name: Build and Push Docker Images to ACR
+
+on:
+  push:
+    branches: [ main ]
+  workflow_dispatch:
+
+env:
+  REGISTRY: ${{ secrets.ACR_LOGIN_SERVER }}
+  IMAGE_TAG: ${{ github.sha }}
+
+jobs:
+  build-push:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - image: discovery-service
+            context: Backend
+            dockerfile: Backend/discovery-service/Dockerfile
+          - image: auth-service
+            context: Backend
+            dockerfile: Backend/auth-service/Dockerfile
+          - image: user-service
+            context: Backend
+            dockerfile: Backend/user-service/Dockerfile
+          - image: post-service
+            context: Backend
+            dockerfile: Backend/post-service/Dockerfile
+          - image: interaction-service
+            context: Backend
+            dockerfile: Backend/interaction-service/Dockerfile
+          - image: media-service
+            context: Backend
+            dockerfile: Backend/media-service/Dockerfile
+          - image: ai-service
+            context: Backend
+            dockerfile: Backend/ai-service/Dockerfile
+          - image: api-gateway
+            context: Backend
+            dockerfile: Backend/api-gateway/Dockerfile
+          - image: frontend
+            context: FrontEnd
+            dockerfile: FrontEnd/Dockerfile
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Login to Azure Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ secrets.ACR_LOGIN_SERVER }}
+          username: ${{ secrets.ACR_USERNAME }}
+          password: ${{ secrets.ACR_PASSWORD }}
+
+      - name: Build and push image
+        uses: docker/build-push-action@v6
+        with:
+          context: ${{ matrix.context }}
+          file: ${{ matrix.dockerfile }}
+          push: true
+          build-args: |
+            VITE_API_BASE_URL=${{ secrets.VITE_API_BASE_URL }}
+          tags: |
+            ${{ env.REGISTRY }}/${{ matrix.image }}:${{ env.IMAGE_TAG }}
+            ${{ env.REGISTRY }}/${{ matrix.image }}:latest
