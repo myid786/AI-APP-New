@@ -13,42 +13,38 @@ env:
 jobs:
   backend:
     runs-on: ubuntu-latest
+    permissions:
+      id-token: write
+      contents: read
     strategy:
       fail-fast: false
+      max-parallel: 2
       matrix:
         include:
           - service: discovery-service
             app: ai-media-discovery-786
             package: Backend/discovery-service/target/*.jar
-            publish_profile_secret: AZURE_WEBAPP_PUBLISH_PROFILE_DISCOVERY
           - service: auth-service
             app: ai-media-auth-786
             package: Backend/auth-service/target/*.jar
-            publish_profile_secret: AZURE_WEBAPP_PUBLISH_PROFILE_AUTH
           - service: user-service
             app: ai-media-user-786
             package: Backend/user-service/target/*.jar
-            publish_profile_secret: AZURE_WEBAPP_PUBLISH_PROFILE_USER
           - service: post-service
             app: ai-media-post-786
             package: Backend/post-service/target/*.jar
-            publish_profile_secret: AZURE_WEBAPP_PUBLISH_PROFILE_POST
           - service: interaction-service
             app: ai-media-interaction-786
             package: Backend/interaction-service/target/*.jar
-            publish_profile_secret: AZURE_WEBAPP_PUBLISH_PROFILE_INTERACTION
           - service: media-service
             app: ai-media-media-786
             package: Backend/media-service/target/*.jar
-            publish_profile_secret: AZURE_WEBAPP_PUBLISH_PROFILE_MEDIA
           - service: ai-service
             app: ai-media-ai-786
             package: Backend/ai-service/target/*.jar
-            publish_profile_secret: AZURE_WEBAPP_PUBLISH_PROFILE_AI
           - service: api-gateway
             app: ai-media-gateway-786
             package: Backend/api-gateway/target/*.jar
-            publish_profile_secret: AZURE_WEBAPP_PUBLISH_PROFILE_GATEWAY
 
     steps:
       - uses: actions/checkout@v4
@@ -65,11 +61,18 @@ jobs:
       - name: Build service
         run: mvn -f Backend/${{ matrix.service }}/pom.xml clean package -DskipTests
 
+      - name: Login to Azure
+        uses: azure/login@v2
+        with:
+          client-id: ${{ secrets.AZUREAPPSERVICE_CLIENTID_8D69C04BCA41433998FE7A46F10BF091 }}
+          tenant-id: ${{ secrets.AZUREAPPSERVICE_TENANTID_9CC48BF9F1F8454AB187E1692B06B7B1 }}
+          subscription-id: ${{ secrets.AZUREAPPSERVICE_SUBSCRIPTIONID_DBE10EE1585D47AABA818F2698A41B54 }}
+
       - name: Deploy service
         uses: azure/webapps-deploy@v3
         with:
           app-name: ${{ matrix.app }}
-          publish-profile: ${{ secrets[matrix.publish_profile_secret] }}
+          slot-name: Production
           package: ${{ matrix.package }}
 
   frontend:
