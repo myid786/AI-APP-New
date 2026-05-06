@@ -69,11 +69,15 @@ jobs:
           subscription-id: ${{ secrets.AZUREAPPSERVICE_SUBSCRIPTIONID_DBE10EE1585D47AABA818F2698A41B54 }}
 
       - name: Deploy service
-        uses: azure/webapps-deploy@v3
-        with:
-          app-name: ${{ matrix.app }}
-          slot-name: Production
-          package: ${{ matrix.package }}
+        shell: bash
+        run: |
+          jar_path="$(ls ${{ matrix.package }} | head -n 1)"
+          az webapp deploy \
+            --resource-group "${{ env.RESOURCE_GROUP }}" \
+            --name "${{ matrix.app }}" \
+            --src-path "$jar_path" \
+            --type jar \
+            --restart true
 
   frontend:
     runs-on: ubuntu-latest
