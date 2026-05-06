@@ -7,6 +7,16 @@ param(
 
 $ErrorActionPreference = "Stop"
 
+$Gh = (Get-Command gh -ErrorAction SilentlyContinue).Source
+if ([string]::IsNullOrWhiteSpace($Gh)) {
+    $DefaultGh = "C:\Program Files\GitHub CLI\gh.exe"
+    if (Test-Path $DefaultGh) {
+        $Gh = $DefaultGh
+    } else {
+        throw "GitHub CLI was not found. Install it or add gh.exe to PATH."
+    }
+}
+
 function Set-RepoSecret {
     param(
         [string]$Name,
@@ -17,7 +27,7 @@ function Set-RepoSecret {
         throw "Secret $Name has an empty value."
     }
 
-    $Value | gh secret set $Name --repo $Repo --body-file -
+    $Value | & $Gh secret set $Name --repo $Repo
     Write-Host "Set $Name"
 }
 
@@ -31,7 +41,7 @@ function Get-PublishProfile {
 }
 
 Write-Host "Checking GitHub CLI authentication..."
-gh auth status
+& $Gh auth status
 
 Write-Host "Setting storage and ACR secrets..."
 $storageConnection = az storage account show-connection-string `
