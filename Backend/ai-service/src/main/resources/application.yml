@@ -10,4 +10,6 @@ eureka:
     service-url:
       defaultZone: ${EUREKA_CLIENT_SERVICEURL_DEFAULTZONE:${EUREKA_URL:http://discovery-service:8761/eureka}}
   instance:
-    prefer-ip-address: true
+    prefer-ip-address: ${EUREKA_PREFER_IP_ADDRESS:true}
+    hostname: ${EUREKA_INSTANCE_HOSTNAME:}
+    non-secure-port: ${EUREKA_INSTANCE_PORT:${SERVER_PORT:8086}}

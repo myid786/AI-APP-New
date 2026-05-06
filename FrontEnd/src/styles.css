@@ -95,6 +95,21 @@ label { color: #344054; font-weight: 700; font-size: 14px; }
 .primary-btn.small { padding: 9px 13px; }
 .primary-btn.full { width: 100%; justify-content: center; }
 
+.ai-plan {
+  display: grid;
+  gap: 7px;
+  border: 1px solid #bfdbfe;
+  border-radius: 14px;
+  background: #eff6ff;
+  color: #1e3a8a;
+  padding: 12px 14px;
+}
+
+.ai-plan span,
+.ai-plan small {
+  color: #475467;
+}
+
 .container {
   max-width: 1180px;
   margin: 0 auto;

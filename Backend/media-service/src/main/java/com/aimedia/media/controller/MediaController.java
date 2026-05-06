@@ -1,39 +1,39 @@
 package com.aimedia.media.controller;
 
-import org.springframework.beans.factory.annotation.Value;
+import com.aimedia.media.entity.MediaAsset;
+import com.aimedia.media.repository.MediaAssetRepository;
+import com.aimedia.media.service.BlobStorageService;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.io.IOException;
-import java.nio.file.*;
+import java.time.LocalDateTime;
 import java.util.Map;
-import java.util.UUID;
 
 @RestController
 @RequestMapping("/api/media")
 @CrossOrigin(origins = "*")
 public class MediaController {
-    @Value("${app.upload-dir}")
-    private String uploadDir;
+    private final BlobStorageService blobStorageService;
+    private final MediaAssetRepository mediaAssetRepository;
 
-    @Value("${app.media-base-url:http://localhost:8085/uploads}")
-    private String mediaBaseUrl;
+    public MediaController(BlobStorageService blobStorageService, MediaAssetRepository mediaAssetRepository) {
+        this.blobStorageService = blobStorageService;
+        this.mediaAssetRepository = mediaAssetRepository;
+    }
 
     @PostMapping(value = "/upload", consumes = {"multipart/form-data"})
     public ResponseEntity<Map<String, String>> upload(@RequestParam("file") MultipartFile file) throws IOException {
-        Files.createDirectories(Paths.get(uploadDir));
-        String filename = UUID.randomUUID() + "-" + file.getOriginalFilename();
-        Path target = Paths.get(uploadDir, filename);
-        Files.copy(file.getInputStream(), target, StandardCopyOption.REPLACE_EXISTING);
-
-        String type = file.getContentType() != null && file.getContentType().startsWith("video") ? "video" : "image";
-        String fileUrl = mediaBaseUrl.replaceAll("/$", "") + "/" + filename;
+        MediaAsset asset = blobStorageService.upload(file);
+        asset.setCreatedAt(LocalDateTime.now());
+        MediaAsset savedAsset = mediaAssetRepository.save(asset);
 
         return ResponseEntity.ok(Map.of(
-                "url", fileUrl,
-                "type", type,
-                "filename", filename
+                "id", savedAsset.getId().toString(),
+                "url", savedAsset.getUrl(),
+                "type", savedAsset.getType(),
+                "filename", savedAsset.getBlobName()
         ));
     }
 }

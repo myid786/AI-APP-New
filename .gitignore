@@ -1,0 +1,6 @@
+**/target/
+FrontEnd/node_modules/
+FrontEnd/dist/
+.env
+.env.*
+*.log

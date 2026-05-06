@@ -1,0 +1,108 @@
+name: Deploy live Java services and frontend
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+env:
+  RESOURCE_GROUP: rg-ai-media-platform
+  FRONTEND_API_BASE_URL: https://ai-media-gateway-786.azurewebsites.net
+
+jobs:
+  backend:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - service: discovery-service
+            app: ai-media-discovery-786
+            package: Backend/discovery-service/target/*.jar
+            publish_profile_secret: AZURE_WEBAPP_PUBLISH_PROFILE_DISCOVERY
+          - service: auth-service
+            app: ai-media-auth-786
+            package: Backend/auth-service/target/*.jar
+            publish_profile_secret: AZURE_WEBAPP_PUBLISH_PROFILE_AUTH
+          - service: user-service
+            app: ai-media-user-786
+            package: Backend/user-service/target/*.jar
+            publish_profile_secret: AZURE_WEBAPP_PUBLISH_PROFILE_USER
+          - service: post-service
+            app: ai-media-post-786
+            package: Backend/post-service/target/*.jar
+            publish_profile_secret: AZURE_WEBAPP_PUBLISH_PROFILE_POST
+          - service: interaction-service
+            app: ai-media-interaction-786
+            package: Backend/interaction-service/target/*.jar
+            publish_profile_secret: AZURE_WEBAPP_PUBLISH_PROFILE_INTERACTION
+          - service: media-service
+            app: ai-media-media-786
+            package: Backend/media-service/target/*.jar
+            publish_profile_secret: AZURE_WEBAPP_PUBLISH_PROFILE_MEDIA
+          - service: ai-service
+            app: ai-media-ai-786
+            package: Backend/ai-service/target/*.jar
+            publish_profile_secret: AZURE_WEBAPP_PUBLISH_PROFILE_AI
+          - service: api-gateway
+            app: ai-media-gateway-786
+            package: Backend/api-gateway/target/*.jar
+            publish_profile_secret: AZURE_WEBAPP_PUBLISH_PROFILE_GATEWAY
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Build common lib
+        run: mvn -f Backend/common-lib/pom.xml clean install -DskipTests
+
+      - name: Build service
+        run: mvn -f Backend/${{ matrix.service }}/pom.xml clean package -DskipTests
+
+      - name: Deploy service
+        uses: azure/webapps-deploy@v3
+        with:
+          app-name: ${{ matrix.app }}
+          publish-profile: ${{ secrets[matrix.publish_profile_secret] }}
+          package: ${{ matrix.package }}
+
+  frontend:
+    runs-on: ubuntu-latest
+    needs: backend
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: npm
+          cache-dependency-path: FrontEnd/package-lock.json
+
+      - name: Build frontend
+        working-directory: FrontEnd
+        run: |
+          npm ci
+          VITE_API_BASE_URL=${{ env.FRONTEND_API_BASE_URL }} npm run build
+
+      - name: Upload frontend to Azure Static Website
+        uses: azure/cli@v2
+        with:
+          inlineScript: |
+            az storage blob service-properties update \
+              --account-name aiappmedia786 \
+              --static-website \
+              --index-document index.html \
+              --404-document index.html \
+              --connection-string "${{ secrets.AZURE_STORAGE_CONNECTION_STRING }}"
+            az storage blob upload-batch \
+              --destination '$web' \
+              --source FrontEnd/dist \
+              --overwrite \
+              --connection-string "${{ secrets.AZURE_STORAGE_CONNECTION_STRING }}"

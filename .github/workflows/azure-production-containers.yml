@@ -1,0 +1,179 @@
+name: Build and deploy production containers
+
+on:
+  workflow_dispatch:
+
+env:
+  ACR_LOGIN_SERVER: ${{ secrets.ACR_LOGIN_SERVER }}
+
+jobs:
+  build-and-deploy:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write
+
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - key: DISCOVERY
+            service: discovery-service
+            context: Backend
+            dockerfile: Backend/discovery-service/Dockerfile
+            port: 8761
+            database: ''
+            app_name_secret: AZURE_WEBAPP_DISCOVERY
+          - key: AUTH
+            service: auth-service
+            context: Backend
+            dockerfile: Backend/auth-service/Dockerfile
+            port: 8081
+            database: auth_db
+            app_name_secret: AZURE_WEBAPP_AUTH
+          - key: USER
+            service: user-service
+            context: Backend
+            dockerfile: Backend/user-service/Dockerfile
+            port: 8082
+            database: user_db
+            app_name_secret: AZURE_WEBAPP_USER
+          - key: POST
+            service: post-service
+            context: Backend
+            dockerfile: Backend/post-service/Dockerfile
+            port: 8083
+            database: post_db
+            app_name_secret: AZURE_WEBAPP_POST
+          - key: INTERACTION
+            service: interaction-service
+            context: Backend
+            dockerfile: Backend/interaction-service/Dockerfile
+            port: 8084
+            database: interaction_db
+            app_name_secret: AZURE_WEBAPP_INTERACTION
+          - key: MEDIA
+            service: media-service
+            context: Backend
+            dockerfile: Backend/media-service/Dockerfile
+            port: 8085
+            database: media_db
+            app_name_secret: AZURE_WEBAPP_MEDIA
+          - key: AI
+            service: ai-service
+            context: Backend
+            dockerfile: Backend/ai-service/Dockerfile
+            port: 8086
+            database: ''
+            app_name_secret: AZURE_WEBAPP_AI
+          - key: GATEWAY
+            service: api-gateway
+            context: Backend
+            dockerfile: Backend/api-gateway/Dockerfile
+            port: 8080
+            database: ''
+            app_name_secret: AZURE_WEBAPP_GATEWAY
+          - key: FRONTEND
+            service: frontend
+            context: FrontEnd
+            dockerfile: FrontEnd/Dockerfile
+            port: 80
+            database: ''
+            app_name_secret: AZURE_WEBAPP_FRONTEND
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Login to Azure
+        uses: azure/login@v2
+        with:
+          client-id: ${{ secrets.AZURE_CLIENT_ID }}
+          tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+          subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+
+      - name: Login to Azure Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ secrets.ACR_LOGIN_SERVER }}
+          username: ${{ secrets.ACR_USERNAME }}
+          password: ${{ secrets.ACR_PASSWORD }}
+
+      - name: Build and push image
+        uses: docker/build-push-action@v6
+        with:
+          context: ${{ matrix.context }}
+          file: ${{ matrix.dockerfile }}
+          push: true
+          tags: ${{ secrets.ACR_LOGIN_SERVER }}/aimedia-${{ matrix.service }}:${{ github.sha }}
+          build-args: |
+            VITE_API_BASE_URL=${{ secrets.VITE_API_BASE_URL }}
+
+      - name: Deploy container to Azure Web App
+        uses: azure/webapps-deploy@v3
+        with:
+          app-name: ${{ secrets[matrix.app_name_secret] }}
+          images: ${{ secrets.ACR_LOGIN_SERVER }}/aimedia-${{ matrix.service }}:${{ github.sha }}
+
+      - name: Configure common Web App settings
+        run: |
+          az webapp config appsettings set \
+            --resource-group "${{ secrets.AZURE_RESOURCE_GROUP }}" \
+            --name "${{ secrets[matrix.app_name_secret] }}" \
+            --settings \
+              WEBSITES_PORT="${{ matrix.port }}" \
+              SERVER_PORT="${{ matrix.port }}" \
+              EUREKA_URL="${{ secrets.EUREKA_URL }}" \
+              JPA_SHOW_SQL="false"
+
+      - name: Configure database settings
+        if: ${{ matrix.database != '' }}
+        run: |
+          az webapp config appsettings set \
+            --resource-group "${{ secrets.AZURE_RESOURCE_GROUP }}" \
+            --name "${{ secrets[matrix.app_name_secret] }}" \
+            --settings \
+              DB_URL="jdbc:mysql://${{ secrets.DB_HOST }}:3306/${{ matrix.database }}?useSSL=true&requireSSL=true&serverTimezone=UTC" \
+              DB_USERNAME="${{ secrets.DB_USERNAME }}" \
+              DB_PASSWORD="${{ secrets.DB_PASSWORD }}" \
+              JPA_DDL_AUTO="update"
+
+      - name: Configure auth settings
+        if: ${{ matrix.key == 'AUTH' }}
+        run: |
+          az webapp config appsettings set \
+            --resource-group "${{ secrets.AZURE_RESOURCE_GROUP }}" \
+            --name "${{ secrets[matrix.app_name_secret] }}" \
+            --settings \
+              JWT_SECRET="${{ secrets.JWT_SECRET }}" \
+              JWT_EXPIRATION_MS="86400000"
+
+      - name: Configure Redis settings
+        if: ${{ matrix.key == 'POST' }}
+        run: |
+          az webapp config appsettings set \
+            --resource-group "${{ secrets.AZURE_RESOURCE_GROUP }}" \
+            --name "${{ secrets[matrix.app_name_secret] }}" \
+            --settings \
+              REDIS_HOST="${{ secrets.REDIS_HOST }}" \
+              REDIS_PORT="${{ secrets.REDIS_PORT }}"
+
+      - name: Configure gateway settings
+        if: ${{ matrix.key == 'GATEWAY' }}
+        run: |
+          az webapp config appsettings set \
+            --resource-group "${{ secrets.AZURE_RESOURCE_GROUP }}" \
+            --name "${{ secrets[matrix.app_name_secret] }}" \
+            --settings \
+              FRONTEND_ORIGIN="${{ secrets.FRONTEND_ORIGIN }}"
+
+      - name: Configure media settings
+        if: ${{ matrix.key == 'MEDIA' }}
+        run: |
+          az webapp config appsettings set \
+            --resource-group "${{ secrets.AZURE_RESOURCE_GROUP }}" \
+            --name "${{ secrets[matrix.app_name_secret] }}" \
+            --settings \
+              UPLOAD_DIR="/app/uploads" \
+              MEDIA_BASE_URL="${{ secrets.MEDIA_BASE_URL }}" \
+              AZURE_STORAGE_CONNECTION_STRING="${{ secrets.AZURE_STORAGE_CONNECTION_STRING }}" \
+              AZURE_STORAGE_CONTAINER="${{ secrets.AZURE_STORAGE_CONTAINER }}"

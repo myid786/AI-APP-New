@@ -4,6 +4,14 @@ server:
 spring:
   application:
     name: media-service
+  datasource:
+    url: ${DB_URL:jdbc:mysql://mysql:3306/media_db?createDatabaseIfNotExist=true&useSSL=false&allowPublicKeyRetrieval=true}
+    username: ${DB_USERNAME:root}
+    password: ${DB_PASSWORD:root}
+  jpa:
+    hibernate:
+      ddl-auto: ${JPA_DDL_AUTO:update}
+    show-sql: ${JPA_SHOW_SQL:true}
   servlet:
     multipart:
       max-file-size: ${MAX_FILE_SIZE:500MB}
@@ -12,10 +20,15 @@ spring:
 app:
   upload-dir: ${UPLOAD_DIR:/app/uploads}
   media-base-url: ${MEDIA_BASE_URL:http://localhost:8085/uploads}
+  azure-storage:
+    connection-string: ${AZURE_STORAGE_CONNECTION_STRING:}
+    container: ${AZURE_STORAGE_CONTAINER:media}
 
 eureka:
   client:
     service-url:
       defaultZone: ${EUREKA_CLIENT_SERVICEURL_DEFAULTZONE:${EUREKA_URL:http://discovery-service:8761/eureka}}
   instance:
-    prefer-ip-address: true
+    prefer-ip-address: ${EUREKA_PREFER_IP_ADDRESS:true}
+    hostname: ${EUREKA_INSTANCE_HOSTNAME:}
+    non-secure-port: ${EUREKA_INSTANCE_PORT:${SERVER_PORT:8085}}

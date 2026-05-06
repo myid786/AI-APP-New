@@ -9,6 +9,7 @@ export default function CreatorDashboard() {
   const [file, setFile] = useState(null)
   const [preview, setPreview] = useState('')
   const [post, setPost] = useState({ title: '', caption: '', location: '', peopleTags: '' })
+  const [aiPlan, setAiPlan] = useState(null)
   const [loading, setLoading] = useState(false)
   const [message, setMessage] = useState('')
 
@@ -29,14 +30,17 @@ export default function CreatorDashboard() {
   const suggestCaption = async () => {
     setMessage('')
     try {
-      const res = await API.post('/api/ai/caption', {
+      const res = await API.post('/api/ai/content-plan', {
         title: post.title,
         location: post.location,
-        peopleTags: post.peopleTags
+        peopleTags: post.peopleTags,
+        mediaType: file?.type?.startsWith('video') ? 'video' : 'image',
+        mood: 'fresh'
       })
+      setAiPlan(res.data)
       setPost({ ...post, caption: `${res.data.caption} ${res.data.hashtags.join(' ')}` })
     } catch {
-      setMessage('AI service not available. Start ai-service on port 8086.')
+      setMessage('AI service not available yet. Check ai-service deployment.')
     }
   }
 
@@ -91,7 +95,15 @@ export default function CreatorDashboard() {
         <label>Caption</label>
         <textarea value={post.caption} onChange={(e) => setPost({ ...post, caption: e.target.value })} placeholder="Write caption or use AI suggestion..." />
 
-        <button type="button" className="secondary-btn" onClick={suggestCaption}><Sparkles size={17} />AI Suggest Caption</button>
+        <button type="button" className="secondary-btn" onClick={suggestCaption}><Sparkles size={17} />AI Content Plan</button>
+
+        {aiPlan && (
+          <div className="ai-plan">
+            <strong>{aiPlan.hook}</strong>
+            <span>{aiPlan.bestTimeToPost}</span>
+            <small>{aiPlan.contentSafetyNote}</small>
+          </div>
+        )}
 
         <label className="upload-box">
           <UploadCloud size={28} />

@@ -2,6 +2,8 @@ package com.aimedia.ai.controller;
 
 import com.aimedia.ai.dto.AiCaptionRequest;
 import com.aimedia.ai.dto.AiCaptionResponse;
+import com.aimedia.ai.dto.AiContentPlanRequest;
+import com.aimedia.ai.dto.AiContentPlanResponse;
 import com.aimedia.ai.service.AiHelperService;
 import org.springframework.web.bind.annotation.*;
 
@@ -18,5 +20,10 @@ public class AiController {
     @PostMapping("/caption")
     public AiCaptionResponse caption(@RequestBody AiCaptionRequest request) {
         return service.caption(request);
+    }
+
+    @PostMapping("/content-plan")
+    public AiContentPlanResponse contentPlan(@RequestBody AiContentPlanRequest request) {
+        return service.contentPlan(request);
     }
 }
