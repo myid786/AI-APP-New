@@ -139,8 +139,22 @@ export default function CreatorDashboard() {
                 <span>AI Matrix Score</span>
                 <strong>{aiMatrix.overallScore}/100</strong>
               </div>
-              <p>{aiMatrix.verdict}</p>
+              <div className="matrix-verdict">
+                <p>{aiMatrix.verdict}</p>
+                <span>{aiMatrix.aiProvider}</span>
+              </div>
             </div>
+
+            {aiMatrix.azureSentiment && (
+              <div className="azure-ai-proof">
+                <strong>Azure AI Language sentiment: {aiMatrix.azureSentiment}</strong>
+                <span>
+                  Positive {Math.round((aiMatrix.azureConfidenceScores?.positive || 0) * 100)}% ·
+                  Neutral {Math.round((aiMatrix.azureConfidenceScores?.neutral || 0) * 100)}% ·
+                  Negative {Math.round((aiMatrix.azureConfidenceScores?.negative || 0) * 100)}%
+                </span>
+              </div>
+            )}
 
             <div className="matrix-list">
               {aiMatrix.matrix.map((row) => (

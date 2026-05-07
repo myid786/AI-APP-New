@@ -36,3 +36,7 @@ app:
   azure-storage:
     connection-string: ${AZURE_STORAGE_CONNECTION_STRING:}
     container: ${AZURE_STORAGE_CONTAINER:media}
+  azure-ai:
+    language:
+      endpoint: ${AZURE_AI_LANGUAGE_ENDPOINT:}
+      key: ${AZURE_AI_LANGUAGE_KEY:}

@@ -154,6 +154,37 @@ label { color: #344054; font-weight: 700; font-size: 14px; }
   text-align: right;
 }
 
+.matrix-verdict {
+  display: grid;
+  gap: 4px;
+  justify-items: end;
+}
+
+.matrix-verdict span {
+  max-width: 230px;
+  text-align: right;
+}
+
+.azure-ai-proof {
+  display: grid;
+  gap: 5px;
+  border: 1px solid #bae6fd;
+  border-radius: 14px;
+  background: #f0f9ff;
+  padding: 10px 12px;
+}
+
+.azure-ai-proof strong {
+  color: #075985;
+  font-size: 14px;
+}
+
+.azure-ai-proof span {
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 800;
+}
+
 .matrix-list {
   display: grid;
   gap: 8px;

@@ -15,6 +15,12 @@ import java.util.Locale;
 
 @Service
 public class AiHelperService {
+    private final AzureLanguageService azureLanguageService;
+
+    public AiHelperService(AzureLanguageService azureLanguageService) {
+        this.azureLanguageService = azureLanguageService;
+    }
+
     public AiCaptionResponse caption(AiCaptionRequest r) {
         AiContentPlanResponse plan = contentPlan(new AiContentPlanRequest(
                 r.title(),
@@ -95,6 +101,16 @@ public class AiHelperService {
                 "Review faces, private data, copyrighted music, location sensitivity, and risky wording before publishing.",
                 "High"));
 
+        String azureText = (title + ". " + caption + ". " + peopleTags).trim();
+        AzureLanguageInsight azureInsight = azureLanguageService.analyzeSentiment(azureText).orElse(null);
+        if (azureInsight != null) {
+            rows.add(row(
+                    "Azure AI sentiment",
+                    scoreAzureSentiment(azureInsight),
+                    "Azure AI Language analysed the post text sentiment using the free F0 Language resource.",
+                    "High"));
+        }
+
         int overall = rows.stream().mapToInt(AiSuggestionMatrixRow::score).sum() / rows.size();
         List<String> actions = rows.stream()
                 .filter(row -> row.score() < 80)
@@ -107,7 +123,10 @@ public class AiHelperService {
                 overall,
                 verdict(overall),
                 rows,
-                actions.isEmpty() ? List.of("Ready to publish. Do one final media preview check.") : actions);
+                actions.isEmpty() ? List.of("Ready to publish. Do one final media preview check.") : actions,
+                azureInsight == null ? "Internal scoring engine" : "Azure AI Language + internal scoring engine",
+                azureInsight == null ? null : azureInsight.sentiment(),
+                azureInsight == null ? null : azureInsight.confidenceScores());
     }
 
     private String valueOrDefault(String value, String fallback) {
@@ -187,6 +206,16 @@ public class AiHelperService {
         if (combined.matches(".*\\b(kid|child|school|hospital|private)\\b.*")) score -= 20;
         if (combined.matches(".*\\b(copyright|song|music|brand)\\b.*")) score -= 10;
         return clamp(score);
+    }
+
+    private int scoreAzureSentiment(AzureLanguageInsight insight) {
+        return switch (insight.sentiment().toLowerCase(Locale.ROOT)) {
+            case "positive" -> 90;
+            case "neutral" -> 75;
+            case "mixed" -> 62;
+            case "negative" -> 45;
+            default -> 65;
+        };
     }
 
     private String status(int score) {
