@@ -4,6 +4,8 @@ import com.aimedia.ai.dto.AiCaptionRequest;
 import com.aimedia.ai.dto.AiCaptionResponse;
 import com.aimedia.ai.dto.AiContentPlanRequest;
 import com.aimedia.ai.dto.AiContentPlanResponse;
+import com.aimedia.ai.dto.AiSuggestionMatrixRequest;
+import com.aimedia.ai.dto.AiSuggestionMatrixResponse;
 import com.aimedia.ai.service.AiHelperService;
 import org.springframework.web.bind.annotation.*;
 
@@ -25,5 +27,10 @@ public class AiController {
     @PostMapping("/content-plan")
     public AiContentPlanResponse contentPlan(@RequestBody AiContentPlanRequest request) {
         return service.contentPlan(request);
+    }
+
+    @PostMapping("/suggestion-matrix")
+    public AiSuggestionMatrixResponse suggestionMatrix(@RequestBody AiSuggestionMatrixRequest request) {
+        return service.suggestionMatrix(request);
     }
 }

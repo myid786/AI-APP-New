@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { Sparkles, UploadCloud } from 'lucide-react'
+import { Sparkles, TableProperties, UploadCloud } from 'lucide-react'
 import API, { getUser } from '../api'
 
 export default function CreatorDashboard() {
@@ -10,7 +10,9 @@ export default function CreatorDashboard() {
   const [preview, setPreview] = useState('')
   const [post, setPost] = useState({ title: '', caption: '', location: '', peopleTags: '' })
   const [aiPlan, setAiPlan] = useState(null)
+  const [aiMatrix, setAiMatrix] = useState(null)
   const [loading, setLoading] = useState(false)
+  const [matrixLoading, setMatrixLoading] = useState(false)
   const [message, setMessage] = useState('')
 
   if (!user?.userId) {
@@ -40,7 +42,27 @@ export default function CreatorDashboard() {
       setAiPlan(res.data)
       setPost({ ...post, caption: `${res.data.caption} ${res.data.hashtags.join(' ')}` })
     } catch {
-      setMessage('AI service not available yet. Check ai-service deployment.')
+      setMessage('AI service not available yet. Check backend deployment.')
+    }
+  }
+
+  const suggestMatrix = async () => {
+    setMessage('')
+    setMatrixLoading(true)
+    try {
+      const res = await API.post('/api/ai/suggestion-matrix', {
+        title: post.title,
+        caption: post.caption,
+        location: post.location,
+        peopleTags: post.peopleTags,
+        mediaType: file?.type?.startsWith('video') ? 'video' : 'image',
+        mood: 'fresh'
+      })
+      setAiMatrix(res.data)
+    } catch {
+      setMessage('AI matrix is not available yet. Check backend deployment.')
+    } finally {
+      setMatrixLoading(false)
     }
   }
 
@@ -95,13 +117,48 @@ export default function CreatorDashboard() {
         <label>Caption</label>
         <textarea value={post.caption} onChange={(e) => setPost({ ...post, caption: e.target.value })} placeholder="Write caption or use AI suggestion..." />
 
-        <button type="button" className="secondary-btn" onClick={suggestCaption}><Sparkles size={17} />AI Content Plan</button>
+        <div className="ai-actions">
+          <button type="button" className="secondary-btn" onClick={suggestCaption}><Sparkles size={17} />AI Content Plan</button>
+          <button type="button" className="secondary-btn" onClick={suggestMatrix} disabled={matrixLoading}>
+            <TableProperties size={17} />{matrixLoading ? 'Checking...' : 'AI Matrix'}
+          </button>
+        </div>
 
         {aiPlan && (
           <div className="ai-plan">
             <strong>{aiPlan.hook}</strong>
             <span>{aiPlan.bestTimeToPost}</span>
             <small>{aiPlan.contentSafetyNote}</small>
+          </div>
+        )}
+
+        {aiMatrix && (
+          <div className="ai-matrix">
+            <div className="matrix-head">
+              <div>
+                <span>AI Matrix Score</span>
+                <strong>{aiMatrix.overallScore}/100</strong>
+              </div>
+              <p>{aiMatrix.verdict}</p>
+            </div>
+
+            <div className="matrix-list">
+              {aiMatrix.matrix.map((row) => (
+                <div className="matrix-row" key={row.metric}>
+                  <div>
+                    <strong>{row.metric}</strong>
+                    <span>{row.suggestion}</span>
+                  </div>
+                  <div className={`score-pill ${row.status.toLowerCase().replace(' ', '-')}`}>
+                    {row.score}
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            <div className="next-actions">
+              {aiMatrix.nextActions.map((action) => <span key={action}>{action}</span>)}
+            </div>
           </div>
         )}
 
