@@ -6,7 +6,8 @@ on:
     branches:
       - main
     paths:
-      - Backend/**
+      - Backend/common-lib/**
+      - Backend/single-backend/**
       - FrontEnd/**
       - .github/workflows/azure-docker-images.yml
 
@@ -20,30 +21,9 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - image: aimedia-discovery-service
-            context: Backend
-            dockerfile: Backend/discovery-service/Dockerfile
-          - image: aimedia-auth-service
-            context: Backend
-            dockerfile: Backend/auth-service/Dockerfile
-          - image: aimedia-user-service
-            context: Backend
-            dockerfile: Backend/user-service/Dockerfile
-          - image: aimedia-post-service
-            context: Backend
-            dockerfile: Backend/post-service/Dockerfile
-          - image: aimedia-interaction-service
-            context: Backend
-            dockerfile: Backend/interaction-service/Dockerfile
-          - image: aimedia-media-service
-            context: Backend
-            dockerfile: Backend/media-service/Dockerfile
-          - image: aimedia-ai-service
-            context: Backend
-            dockerfile: Backend/ai-service/Dockerfile
-          - image: aimedia-api-gateway
-            context: Backend
-            dockerfile: Backend/api-gateway/Dockerfile
+          - image: aimedia-single-backend
+            context: .
+            dockerfile: Backend/single-backend/Dockerfile
           - image: aimedia-frontend
             context: FrontEnd
             dockerfile: FrontEnd/Dockerfile

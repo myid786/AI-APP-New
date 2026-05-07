@@ -1,9 +1,6 @@
 name: Deploy live Java services and frontend
 
 on:
-  push:
-    branches:
-      - main
   workflow_dispatch:
 
 env:

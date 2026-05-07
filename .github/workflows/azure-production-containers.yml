@@ -1,85 +1,30 @@
-name: Build and deploy production containers
+name: Build and deploy single backend container
 
 on:
   workflow_dispatch:
+  push:
+    branches:
+      - main
+    paths:
+      - Backend/common-lib/**
+      - Backend/single-backend/**
+      - FrontEnd/**
+      - .github/workflows/azure-production-containers.yml
 
 env:
-  ACR_LOGIN_SERVER: ${{ secrets.ACR_LOGIN_SERVER }}
+  RESOURCE_GROUP: rg-ai-media-platform
+  BACKEND_APP: ai-media-gateway-786
+  STORAGE_ACCOUNT: aiappmedia786
+  ACR_LOGIN_SERVER: aimediaacr786.azurecr.io
+  BACKEND_IMAGE: aimedia-single-backend
+  FRONTEND_API_BASE_URL: https://ai-media-gateway-786.azurewebsites.net
 
 jobs:
-  build-and-deploy:
+  deploy:
     runs-on: ubuntu-latest
     permissions:
       contents: read
       id-token: write
-
-    strategy:
-      fail-fast: false
-      matrix:
-        include:
-          - key: DISCOVERY
-            service: discovery-service
-            context: Backend
-            dockerfile: Backend/discovery-service/Dockerfile
-            port: 8761
-            database: ''
-            app_name_secret: AZURE_WEBAPP_DISCOVERY
-          - key: AUTH
-            service: auth-service
-            context: Backend
-            dockerfile: Backend/auth-service/Dockerfile
-            port: 8081
-            database: auth_db
-            app_name_secret: AZURE_WEBAPP_AUTH
-          - key: USER
-            service: user-service
-            context: Backend
-            dockerfile: Backend/user-service/Dockerfile
-            port: 8082
-            database: user_db
-            app_name_secret: AZURE_WEBAPP_USER
-          - key: POST
-            service: post-service
-            context: Backend
-            dockerfile: Backend/post-service/Dockerfile
-            port: 8083
-            database: post_db
-            app_name_secret: AZURE_WEBAPP_POST
-          - key: INTERACTION
-            service: interaction-service
-            context: Backend
-            dockerfile: Backend/interaction-service/Dockerfile
-            port: 8084
-            database: interaction_db
-            app_name_secret: AZURE_WEBAPP_INTERACTION
-          - key: MEDIA
-            service: media-service
-            context: Backend
-            dockerfile: Backend/media-service/Dockerfile
-            port: 8085
-            database: media_db
-            app_name_secret: AZURE_WEBAPP_MEDIA
-          - key: AI
-            service: ai-service
-            context: Backend
-            dockerfile: Backend/ai-service/Dockerfile
-            port: 8086
-            database: ''
-            app_name_secret: AZURE_WEBAPP_AI
-          - key: GATEWAY
-            service: api-gateway
-            context: Backend
-            dockerfile: Backend/api-gateway/Dockerfile
-            port: 8080
-            database: ''
-            app_name_secret: AZURE_WEBAPP_GATEWAY
-          - key: FRONTEND
-            service: frontend
-            context: FrontEnd
-            dockerfile: FrontEnd/Dockerfile
-            port: 80
-            database: ''
-            app_name_secret: AZURE_WEBAPP_FRONTEND
 
     steps:
       - uses: actions/checkout@v4
@@ -87,93 +32,65 @@ jobs:
       - name: Login to Azure
         uses: azure/login@v2
         with:
-          client-id: ${{ secrets.AZURE_CLIENT_ID }}
-          tenant-id: ${{ secrets.AZURE_TENANT_ID }}
-          subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+          client-id: ${{ secrets.AZUREAPPSERVICE_CLIENTID_8D69C04BCA41433998FE7A46F10BF091 }}
+          tenant-id: ${{ secrets.AZUREAPPSERVICE_TENANTID_9CC48BF9F1F8454AB187E1692B06B7B1 }}
+          subscription-id: ${{ secrets.AZUREAPPSERVICE_SUBSCRIPTIONID_DBE10EE1585D47AABA818F2698A41B54 }}
 
-      - name: Login to Azure Container Registry
+      - name: Login to ACR
         uses: docker/login-action@v3
         with:
-          registry: ${{ secrets.ACR_LOGIN_SERVER }}
+          registry: ${{ env.ACR_LOGIN_SERVER }}
           username: ${{ secrets.ACR_USERNAME }}
           password: ${{ secrets.ACR_PASSWORD }}
 
-      - name: Build and push image
+      - name: Build and push backend image
         uses: docker/build-push-action@v6
         with:
-          context: ${{ matrix.context }}
-          file: ${{ matrix.dockerfile }}
+          context: .
+          file: Backend/single-backend/Dockerfile
           push: true
-          tags: ${{ secrets.ACR_LOGIN_SERVER }}/aimedia-${{ matrix.service }}:${{ github.sha }}
-          build-args: |
-            VITE_API_BASE_URL=${{ secrets.VITE_API_BASE_URL }}
+          tags: |
+            ${{ env.ACR_LOGIN_SERVER }}/${{ env.BACKEND_IMAGE }}:latest
+            ${{ env.ACR_LOGIN_SERVER }}/${{ env.BACKEND_IMAGE }}:${{ github.sha }}
 
-      - name: Deploy container to Azure Web App
-        uses: azure/webapps-deploy@v3
+      - name: Deploy backend container
+        run: |
+          az webapp config container set \
+            --resource-group "${{ env.RESOURCE_GROUP }}" \
+            --name "${{ env.BACKEND_APP }}" \
+            --container-image-name "${{ env.ACR_LOGIN_SERVER }}/${{ env.BACKEND_IMAGE }}:${{ github.sha }}" \
+            --container-registry-url "https://${{ env.ACR_LOGIN_SERVER }}" \
+            --container-registry-user "${{ secrets.ACR_USERNAME }}" \
+            --container-registry-password "${{ secrets.ACR_PASSWORD }}"
+          az webapp restart \
+            --resource-group "${{ env.RESOURCE_GROUP }}" \
+            --name "${{ env.BACKEND_APP }}"
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
         with:
-          app-name: ${{ secrets[matrix.app_name_secret] }}
-          images: ${{ secrets.ACR_LOGIN_SERVER }}/aimedia-${{ matrix.service }}:${{ github.sha }}
+          node-version: '20'
+          cache: npm
+          cache-dependency-path: FrontEnd/package-lock.json
 
-      - name: Configure common Web App settings
+      - name: Build frontend
+        working-directory: FrontEnd
         run: |
-          az webapp config appsettings set \
-            --resource-group "${{ secrets.AZURE_RESOURCE_GROUP }}" \
-            --name "${{ secrets[matrix.app_name_secret] }}" \
-            --settings \
-              WEBSITES_PORT="${{ matrix.port }}" \
-              SERVER_PORT="${{ matrix.port }}" \
-              EUREKA_URL="${{ secrets.EUREKA_URL }}" \
-              JPA_SHOW_SQL="false"
+          npm ci
+          VITE_API_BASE_URL=${{ env.FRONTEND_API_BASE_URL }} npm run build
 
-      - name: Configure database settings
-        if: ${{ matrix.database != '' }}
-        run: |
-          az webapp config appsettings set \
-            --resource-group "${{ secrets.AZURE_RESOURCE_GROUP }}" \
-            --name "${{ secrets[matrix.app_name_secret] }}" \
-            --settings \
-              DB_URL="jdbc:mysql://${{ secrets.DB_HOST }}:3306/${{ matrix.database }}?useSSL=true&requireSSL=true&serverTimezone=UTC" \
-              DB_USERNAME="${{ secrets.DB_USERNAME }}" \
-              DB_PASSWORD="${{ secrets.DB_PASSWORD }}" \
-              JPA_DDL_AUTO="update"
-
-      - name: Configure auth settings
-        if: ${{ matrix.key == 'AUTH' }}
-        run: |
-          az webapp config appsettings set \
-            --resource-group "${{ secrets.AZURE_RESOURCE_GROUP }}" \
-            --name "${{ secrets[matrix.app_name_secret] }}" \
-            --settings \
-              JWT_SECRET="${{ secrets.JWT_SECRET }}" \
-              JWT_EXPIRATION_MS="86400000"
-
-      - name: Configure Redis settings
-        if: ${{ matrix.key == 'POST' }}
-        run: |
-          az webapp config appsettings set \
-            --resource-group "${{ secrets.AZURE_RESOURCE_GROUP }}" \
-            --name "${{ secrets[matrix.app_name_secret] }}" \
-            --settings \
-              REDIS_HOST="${{ secrets.REDIS_HOST }}" \
-              REDIS_PORT="${{ secrets.REDIS_PORT }}"
-
-      - name: Configure gateway settings
-        if: ${{ matrix.key == 'GATEWAY' }}
-        run: |
-          az webapp config appsettings set \
-            --resource-group "${{ secrets.AZURE_RESOURCE_GROUP }}" \
-            --name "${{ secrets[matrix.app_name_secret] }}" \
-            --settings \
-              FRONTEND_ORIGIN="${{ secrets.FRONTEND_ORIGIN }}"
-
-      - name: Configure media settings
-        if: ${{ matrix.key == 'MEDIA' }}
-        run: |
-          az webapp config appsettings set \
-            --resource-group "${{ secrets.AZURE_RESOURCE_GROUP }}" \
-            --name "${{ secrets[matrix.app_name_secret] }}" \
-            --settings \
-              UPLOAD_DIR="/app/uploads" \
-              MEDIA_BASE_URL="${{ secrets.MEDIA_BASE_URL }}" \
-              AZURE_STORAGE_CONNECTION_STRING="${{ secrets.AZURE_STORAGE_CONNECTION_STRING }}" \
-              AZURE_STORAGE_CONTAINER="${{ secrets.AZURE_STORAGE_CONTAINER }}"
+      - name: Upload frontend to Azure Static Website
+        uses: azure/cli@v2
+        with:
+          inlineScript: |
+            az storage blob service-properties update \
+              --account-name "${{ env.STORAGE_ACCOUNT }}" \
+              --static-website \
+              --index-document index.html \
+              --404-document index.html \
+              --connection-string "${{ secrets.AZURE_STORAGE_CONNECTION_STRING }}"
+            az storage blob upload-batch \
+              --destination '$web' \
+              --source FrontEnd/dist \
+              --overwrite \
+              --connection-string "${{ secrets.AZURE_STORAGE_CONNECTION_STRING }}"
