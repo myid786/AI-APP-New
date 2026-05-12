@@ -1,195 +1,52 @@
-# Azure live checklist
+# Azure Live Checklist
 
-## Current Azure resources found
+## Current Live Resources
 
 - Resource group: `rg-ai-media-platform`
-- Web App: `aiappproject`
-- MySQL Flexible Server: `aiappproject-server.mysql.database.azure.com`
-- Blob Storage account: `aiappmedia786`
-- Blob Storage container: `media`
-- MySQL server public network access: disabled
-- Web App VNet integration: enabled
+- Frontend: Azure Storage Static Website
+- Backend: Azure App Service Linux container
+- Backend Web App: `ai-media-gateway-786`
+- Container registry: `aimediaacr786`
+- Storage account: `aiappmedia786`
+- Blob container: `media`
+- MySQL Flexible Server: `aiappproject-server`
+- Database: `ai_media_db`
+- Azure AI Language: `ai-media-language-786`
+- Redis resource: `ai-media-redis-786`
 
-## Databases created
+## Required App Settings
 
-- `auth_db`
-- `user_db`
-- `post_db`
-- `interaction_db`
-- `media_db`
-
-The Spring services already read Azure App Settings through these environment variables:
-
-- `DB_URL`
-- `DB_USERNAME`
-- `DB_PASSWORD`
-- `JWT_SECRET`
-- `EUREKA_URL`
-- `REDIS_HOST`
-- `REDIS_PORT`
-- `FRONTEND_ORIGIN`
-- `MEDIA_BASE_URL`
-- `AZURE_STORAGE_CONNECTION_STRING`
-- `AZURE_STORAGE_CONTAINER`
-
-## Important deployment note
-
-The current Azure-generated workflow deploys only `Backend/ai-service` to the single Web App named `aiappproject`.
-
-For the full application to be live, deploy these as separate container apps or Web Apps:
-
-- `discovery-service`
-- `auth-service`
-- `user-service`
-- `post-service`
-- `interaction-service`
-- `media-service`
-- `ai-service`
-- `api-gateway`
-- `frontend`
-
-The repo now includes `.github/workflows/azure-production-containers.yml` as a manual production workflow for that model.
-
-## GitHub secrets needed for the production container workflow
-
-Azure login:
+Backend settings should be configured in Azure App Service:
 
 ```text
-AZURE_CLIENT_ID
-AZURE_TENANT_ID
-AZURE_SUBSCRIPTION_ID
-AZURE_RESOURCE_GROUP=rg-ai-media-platform
+DB_URL
+DB_USERNAME
+DB_PASSWORD
+JWT_SECRET
+FRONTEND_ORIGIN
+AZURE_STORAGE_CONNECTION_STRING
+AZURE_STORAGE_CONTAINER
+MEDIA_BASE_URL
+AZURE_AI_LANGUAGE_ENDPOINT
+AZURE_AI_LANGUAGE_KEY
 ```
 
-Azure Container Registry:
+Frontend build setting:
 
 ```text
-ACR_LOGIN_SERVER
-ACR_USERNAME
-ACR_PASSWORD
+VITE_API_BASE_URL=https://ai-media-gateway-786.azurewebsites.net
 ```
 
-Azure Web App names:
+## Deployment Checks
 
-```text
-AZURE_WEBAPP_DISCOVERY
-AZURE_WEBAPP_AUTH
-AZURE_WEBAPP_USER
-AZURE_WEBAPP_POST
-AZURE_WEBAPP_INTERACTION
-AZURE_WEBAPP_MEDIA
-AZURE_WEBAPP_AI
-AZURE_WEBAPP_GATEWAY
-AZURE_WEBAPP_FRONTEND
-```
+- Backend health endpoint returns a successful response.
+- Frontend loads from the Azure Storage static website URL.
+- GitHub Actions completes the Docker build and deployment workflow.
+- Azure Container Registry contains the latest backend image.
+- Media upload stores files in the Blob container.
+- MySQL stores metadata records.
+- AI Matrix endpoint returns sentiment data from Azure AI Language.
 
-Database and service settings:
+## Future Scale Path
 
-```text
-DB_HOST=aiappproject-server.mysql.database.azure.com
-DB_USERNAME=<mysql-admin-or-app-user>
-DB_PASSWORD=<mysql-password>
-JWT_SECRET=<long-random-secret>
-EUREKA_URL=https://<discovery-webapp>.azurewebsites.net/eureka
-VITE_API_BASE_URL=https://<gateway-webapp>.azurewebsites.net
-FRONTEND_ORIGIN=https://<frontend-webapp>.azurewebsites.net
-MEDIA_BASE_URL=https://aiappmedia786.blob.core.windows.net/media
-AZURE_STORAGE_CONNECTION_STRING=<storage-connection-string>
-AZURE_STORAGE_CONTAINER=media
-```
-
-Redis is still needed for `post-service`:
-
-```text
-REDIS_HOST=<azure-cache-host>
-REDIS_PORT=6380
-```
-
-## Azure App Settings per service
-
-### auth-service
-
-```text
-DB_URL=jdbc:mysql://aiappproject-server.mysql.database.azure.com:3306/auth_db?useSSL=true&requireSSL=true&serverTimezone=UTC
-DB_USERNAME=<mysql-user>
-DB_PASSWORD=<mysql-password>
-JWT_SECRET=<long-random-secret>
-EUREKA_URL=https://<discovery-webapp>.azurewebsites.net/eureka
-JPA_DDL_AUTO=update
-JPA_SHOW_SQL=false
-WEBSITES_PORT=8081
-```
-
-### user-service
-
-```text
-DB_URL=jdbc:mysql://aiappproject-server.mysql.database.azure.com:3306/user_db?useSSL=true&requireSSL=true&serverTimezone=UTC
-DB_USERNAME=<mysql-user>
-DB_PASSWORD=<mysql-password>
-EUREKA_URL=https://<discovery-webapp>.azurewebsites.net/eureka
-JPA_DDL_AUTO=update
-JPA_SHOW_SQL=false
-WEBSITES_PORT=8082
-```
-
-### post-service
-
-```text
-DB_URL=jdbc:mysql://aiappproject-server.mysql.database.azure.com:3306/post_db?useSSL=true&requireSSL=true&serverTimezone=UTC
-DB_USERNAME=<mysql-user>
-DB_PASSWORD=<mysql-password>
-REDIS_HOST=<azure-cache-host>
-REDIS_PORT=6380
-EUREKA_URL=https://<discovery-webapp>.azurewebsites.net/eureka
-JPA_DDL_AUTO=update
-JPA_SHOW_SQL=false
-WEBSITES_PORT=8083
-```
-
-### interaction-service
-
-```text
-DB_URL=jdbc:mysql://aiappproject-server.mysql.database.azure.com:3306/interaction_db?useSSL=true&requireSSL=true&serverTimezone=UTC
-DB_USERNAME=<mysql-user>
-DB_PASSWORD=<mysql-password>
-EUREKA_URL=https://<discovery-webapp>.azurewebsites.net/eureka
-JPA_DDL_AUTO=update
-JPA_SHOW_SQL=false
-WEBSITES_PORT=8084
-```
-
-### api-gateway
-
-```text
-FRONTEND_ORIGIN=https://<frontend-webapp>.azurewebsites.net
-EUREKA_URL=https://<discovery-webapp>.azurewebsites.net/eureka
-WEBSITES_PORT=8080
-```
-
-### media-service
-
-```text
-DB_URL=jdbc:mysql://aiappproject-server.mysql.database.azure.com:3306/media_db?useSSL=true&requireSSL=true&serverTimezone=UTC
-DB_USERNAME=<mysql-user>
-DB_PASSWORD=<mysql-password>
-AZURE_STORAGE_CONNECTION_STRING=<storage-connection-string>
-AZURE_STORAGE_CONTAINER=media
-MEDIA_BASE_URL=https://aiappmedia786.blob.core.windows.net/media
-EUREKA_URL=https://<discovery-webapp>.azurewebsites.net/eureka
-JPA_DDL_AUTO=update
-JPA_SHOW_SQL=false
-WEBSITES_PORT=8085
-```
-
-### ai-service
-
-```text
-EUREKA_URL=https://<discovery-webapp>.azurewebsites.net/eureka
-WEBSITES_PORT=8086
-```
-
-### frontend
-
-```text
-WEBSITES_PORT=80
-```
+The current deployment is intentionally cost-aware. For larger traffic, the same backend image can be deployed to Azure Container Apps with autoscaling. Azure Front Door, CDN, Redis, Service Bus, Key Vault, and Application Insights can be added as production-grade services around the current design.

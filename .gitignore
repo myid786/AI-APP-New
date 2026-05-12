@@ -4,3 +4,18 @@ FrontEnd/dist/
 .env
 .env.*
 *.log
+
+# Local presentation/export files
+*.pptx
+*.docx
+*.tmp
+ppt_preview*/
+source_assets/
+template_assets/
+Source_copy.pptx
+UU_Template_copy.pptx
+
+# Local helper scripts generated during documentation/presentation work
+scripts/apply_uu_template.ps1
+scripts/create_*.ps1
+scripts/rebuild_*.ps1
